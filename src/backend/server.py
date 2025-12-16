@@ -8,7 +8,46 @@ from src.backend.agents import vulnerable_app, secure_app
 from src.backend.mock_bank import bank_system
 from src.data.invoices import POISONED_INVOICE_TEXT
 
+import time
+from collections import deque
+from fastapi import Request
+
 app = FastAPI(title="Tax-Mate AutoPay Backend")
+
+# --- Simple In-Memory Rate Limiter ---
+class RateLimiter:
+    def __init__(self, max_requests: int, window_seconds: int):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self.timestamps = deque()
+
+    def is_allowed(self) -> bool:
+        now = time.time()
+        # Remove timestamps older than the window
+        while self.timestamps and now - self.timestamps[0] > self.window_seconds:
+            self.timestamps.popleft()
+        
+        if len(self.timestamps) >= self.max_requests:
+            return False
+        
+        self.timestamps.append(now)
+        return True
+
+# Limit to 20 requests per minute per instance
+limiter = RateLimiter(max_requests=20, window_seconds=60)
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    # Apply rate limit only to execution endpoints
+    if "/run/" in request.url.path:
+        if not limiter.is_allowed():
+            from fastapi.responses import JSONResponse
+            return JSONResponse(
+                status_code=429, 
+                content={"detail": "Too many requests. Please wait a moment."}
+            )
+    response = await call_next(request)
+    return response
 
 class RunRequest(BaseModel):
     invoice_text: Optional[str] = POISONED_INVOICE_TEXT

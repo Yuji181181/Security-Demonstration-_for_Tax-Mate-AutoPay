@@ -24,7 +24,7 @@ class MockBank:
             "Google": "GOOG-1122-3344"
         }
         self.balances: Dict[str, int] = {
-            "COMPANY_MAIN": 10000000  # 1000万円
+            "COMPANY_MAIN": 10000000
         }
         self.logs: List[str] = []
         self.log_operation("System", "System initialized.")
@@ -55,5 +55,4 @@ class MockBank:
     def get_logs(self) -> List[str]:
         return self.logs
 
-# シングルトンインスタンス
 bank_system = MockBank()

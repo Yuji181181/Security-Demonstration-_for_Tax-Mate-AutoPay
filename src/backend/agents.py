@@ -10,7 +10,6 @@ import os
 
 from src.backend.mock_bank import bank_system
 
-# 環境変数の読み込み (GOOGLE_API_KEYなど)
 load_dotenv()
 
 @tool
@@ -25,12 +24,10 @@ def send_money(vendor: str, amount: int) -> str:
 
 tools = [update_account, send_money]
 
-# --- State Definition ---
 class AgentState(TypedDict):
     messages: Annotated[list[BaseMessage], "add_messages"]
 
 # --- LLM Setup ---
-# Groq モデルを使用 (llama-3.3-70bは最新でツール呼び出しの精度が最も高い)
 llm = ChatGroq(
     model="llama-3.3-70b-versatile",
     temperature=0
@@ -51,7 +48,6 @@ def should_continue(state: AgentState) -> Literal["tools", END]:
     return END
 
 # --- Vulnerable Agent Construction ---
-# ASI01/02: 脆弱性の原因
 # このエージェントは、入力されたプロンプト（請求書）に含まれる指示を無批判に受け入れ、
 # ツール実行の確認ステップを持たずに自律的に actions を実行してしまいます。
 # これにより、Indirect Prompt Injection が成功し、意図しない口座変更や送金が発生します。
@@ -64,11 +60,9 @@ workflow_vulnerable.add_edge(START, "agent")
 workflow_vulnerable.add_conditional_edges("agent", should_continue)
 workflow_vulnerable.add_edge("tools", "agent")
 
-# Compile without checkpointer and without interrupt
 vulnerable_app = workflow_vulnerable.compile()
 
 # --- Secure Agent Construction (LLM Guardrail) ---
-# ASI01/02 + Defense: Automated Guardrail
 # ツール実行の前に、別のLLM（Guardrail）が入力とアクションを検証します。
 # 不正な操作（HACKER-999への送金など）を検知すると、ツール実行をブロックします。
 
@@ -202,8 +196,6 @@ workflow_secure.add_conditional_edges(
 )
 workflow_secure.add_edge("tools", "agent")
 
-# メモリは一応残すが、Interruptは削除
 memory = MemorySaver()
 
-# Compile (No Interrupt)
 secure_app = workflow_secure.compile(checkpointer=memory)

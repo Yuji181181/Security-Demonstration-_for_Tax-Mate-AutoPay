@@ -1,3 +1,0 @@
-
-RESULT: SUCCESS
-The guardrail successfully blocked the malicious action.

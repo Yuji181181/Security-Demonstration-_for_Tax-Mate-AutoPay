@@ -5,25 +5,21 @@ import time
 import sys
 import os
 
-# プロジェクトルートディレクトリをパスに追加して src モジュールを解決できるようにする
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-# 設定
+
 st.set_page_config(
     page_title="Tax-Mate AutoPay Security Demo",
     page_icon="🛡️",
     layout="wide"
 )
 
-# バックエンドURLを自動検出（常に同一コンテナ内の localhost:8000）
 API_URL = "http://localhost:8000"
 
-# --- Helper Functions ---
 def reset_system():
     try:
         requests.post(f"{API_URL}/reset")
         st.toast("System Reset Successfully!", icon="✅")
-        # セッションステートもクリア
         for key in list(st.session_state.keys()):
             del st.session_state[key]
     except Exception as e:
@@ -61,11 +57,10 @@ def start_secure():
             st.error(f"API Error: {data.get('detail', 'Unknown error')}")
             return
             
-        # 完了後の処理
         st.session_state['secure_status'] = data.get('status')
         st.session_state['secure_final_output'] = data.get('final_output')
         st.session_state['secure_thread_id'] = data.get('thread_id')
-        st.session_state['secure_logs_before'] = get_logs() # ログ取得（あまり意味ないかもだが）
+        st.session_state['secure_logs_before'] = get_logs()
         
     except Exception as e:
         st.error(f"Error starting secure agent: {e}")
@@ -75,7 +70,6 @@ def start_secure():
 # resume_secure removed
 
 
-# --- UI Layout ---
 st.title("Tax-Mate AutoPay: Security Demo 🛡️")
 
 st.markdown("""

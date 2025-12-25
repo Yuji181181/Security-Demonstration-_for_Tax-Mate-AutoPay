@@ -15,6 +15,7 @@ st.set_page_config(
     layout="wide"
 )
 
+# バックエンドURLを自動検出（常に同一コンテナ内の localhost:8000）
 API_URL = "http://localhost:8000"
 
 # --- Helper Functions ---

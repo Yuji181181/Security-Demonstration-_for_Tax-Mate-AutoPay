@@ -2,7 +2,7 @@
 
 このリポジトリは、セキュリティ・キャンプ応募課題（LLMアプリケーションへの攻撃と防御）の**実証デモアプリケーション**です。  
 
-自律型AIエージェントに対する **Indirect Prompt Injection** 攻撃と、それに対する **Human-in-the-loop (HITL)** 防御の実効性を比較検証するために作成しました。
+自律型AIエージェントに対する **Indirect Prompt Injection** 攻撃と、それに対する **LLM Guardrail (AIによる自動防御)** の実効性を比較検証するために作成しました。
 
 ---
 
@@ -16,9 +16,9 @@
 
 ### 【問2: 防御策】の実装と検証
 
-**対策:** **Human-in-the-loop (人間参加型)** アプローチの採用。  
-**実装:** LangGraphを用いてエージェントの処理フローを構築し、重要なツール実行（送金など）の直前でシステムを強制的に一時停止（Interrupt）させる。  
-**結果:** エージェントが悪意ある指示に従おうとしても、最終決定権を持つ人間がその操作内容を確認・拒否（Reject）することで、実被害を未然に防ぐことができる。
+**対策:** **LLM Guardrail (AIによる自動監査)** アプローチの採用。  
+**実装:** LangGraphを用いてエージェントの処理フローを構築し、ツール実行（送金など）の直前に、セキュリティ特化の別モデル (Llama 3 via Groq) が操作内容を監査する。  
+**結果:** エージェントが悪意ある指示に従おうとしても、ガードレールAIが「請求書のコンテキストと矛盾する不審な操作」として検知し、実行を自動的にブロック（Block）することで、実被害を未然に防ぐことができる。
 
 ---
 
@@ -26,41 +26,49 @@
 
 ### 🔴 Attack Demo (Vulnerable Agent) - 問1の検証
 
-**結果:** 脆弱なエージェントは請求書の隠し命令に従い、攻撃者の口座へ送金を実行してしまいます。
-**<img width="1681" height="782" alt="Image" src="https://github.com/user-attachments/assets/ca49de25-5517-4954-9bf3-ab4013ad1c67" />**
+**結果:** 脆弱なエージェントは請求書の隠し命令に従い、攻撃者の口座へ送金を実行してしまいます。UI上では、実行されてしまった不正コマンドのログが表示されます。
 
 ### 🟢 Defense Demo (Secure Agent) - 問2の検証
 
-**結果:** Human-in-the-loop 防御により、不審な操作は実行前に一時停止されます。
+**結果:** LLM Guardrail により、不審な操作は実行前に自動的に検知・ブロックされます。ユーザーは攻撃が防がれたことを確認できます。
 
-**<img width="1690" height="695" alt="Image" src="https://github.com/user-attachments/assets/1694b334-ed73-4ff3-b7a2-58ac0de8e134" />**
-**<img width="1673" height="807" alt="Image" src="https://github.com/user-attachments/assets/cb2f0c0a-3ec4-44d7-9dd8-3b5dd0f4fcb1" />**
-*ユーザーは内容を確認し、Rejectボタンで攻撃を阻止できます。*
+*人手を介さずとも、AI対AIの構図で攻撃を無効化します。*
 
 ---
 
-## 起動コマンド
+## 🚀 セットアップ & 起動
 
-### バックエンド
+### 必要な環境変数
+
+`.env` ファイルを作成し、以下のAPIキーを設定してください。
+
+```bash
+GOOGLE_API_KEY=your_gemini_api_key
+GROQ_API_KEY=your_groq_api_key
+```
+
+### バックエンド起動
 
 ```bash
 uv run uvicorn src.backend.server:app --port 8000
 ```
 
-### フロントエンド
+### フロントエンド起動
 
 ```bash
 uv run streamlit run src/frontend/app.py --server.port 8501
 ```
 
+---
+
 ## 🛠️ 技術スタック
 
-- **Language:** Python (管理: `uv`)
-- **LLM:** Google Gemini 2.5 Flash
-- **Orchestration:** LangGraph (StateGraph, Checkpointer)
+- **Language:** Python (`uv`)
+- **Main Agent LLM:** Google Gemini 2.5 Flash
+- **Guardrail LLM:** Groq (Llama 3.1 8B Instant)
+- **Orchestration:** LangGraph (StateGraph)
 - **Backend:** FastAPI
 - **Frontend:** Streamlit
-- **Infrastructure:** Google Cloud Run
 
 ## 📂 ファイル構成
 
@@ -68,5 +76,3 @@ uv run streamlit run src/frontend/app.py --server.port 8501
 - `src/backend/mock_bank.py`: 攻撃対象となる仮想の銀行API
 - `src/data/invoices.py`: Prompt Injectionを含む請求書データ
 - `src/frontend/app.py`: 検証用UI
-
-

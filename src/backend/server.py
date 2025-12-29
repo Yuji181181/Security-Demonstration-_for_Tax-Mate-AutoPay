@@ -6,6 +6,7 @@ from langchain_core.messages import HumanMessage
 
 from src.backend.agents import vulnerable_app, secure_app
 from src.backend.mock_bank import bank_system
+from src.backend.context import user_role_var
 from src.data.invoices import POISONED_INVOICE_TEXT
 
 import time
@@ -51,6 +52,7 @@ async def rate_limit_middleware(request: Request, call_next):
 
 class RunRequest(BaseModel):
     invoice_text: Optional[str] = POISONED_INVOICE_TEXT
+    role: str = "ADMIN"  # "ADMIN" or "READ_ONLY"
 
 class ResumeRequest(BaseModel):
     thread_id: str
@@ -65,12 +67,20 @@ def reset_system():
 def get_logs():
     return {"logs": bank_system.get_logs()}
 
+@app.get("/audit")
+def audit_logs():
+    return {"anomalies": bank_system.audit_logs()}
+
 @app.post("/run/vulnerable")
 async def run_vulnerable(req: RunRequest):
+    # Set User Role in Context
+    token = user_role_var.set(req.role)
+    
     # 脆弱なエージェント: 最後まで一気に実行
     # ステートを持たないため、毎回新しい実行として扱う
     inputs = {"messages": [HumanMessage(content=req.invoice_text)]}
     try:
+
         # invokeで実行。同期的に完了まで待つ
         # Recursion limitを明示的に指定（デフォルト25だが、無限ループ対策に入れておく）
         result = vulnerable_app.invoke(inputs, {"recursion_limit": 20})
@@ -88,10 +98,17 @@ async def run_vulnerable(req: RunRequest):
                  "final_output": "Agent execution stopped due to recursion limit. This usually indicates the agent successfully entered an instruction loop (Attack Successful)."
              }
              
+
+             
         raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {str(e)}")
+    finally:
+        user_role_var.reset(token)
 
 @app.post("/run/secure/start")
 def start_secure(req: RunRequest):
+    # Set User Role in Context
+    token = user_role_var.set(req.role)
+
     thread_id = str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
     inputs = {"messages": [HumanMessage(content=req.invoice_text)]}
@@ -111,6 +128,8 @@ def start_secure(req: RunRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        user_role_var.reset(token)
 
 # Resume endpoint removed as HITL is replaced by LLM Guardrail
 

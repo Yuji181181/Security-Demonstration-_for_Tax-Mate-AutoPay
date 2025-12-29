@@ -9,18 +9,23 @@ from dotenv import load_dotenv
 import os
 
 from src.backend.mock_bank import bank_system
+from src.backend.context import user_role_var
 
 load_dotenv()
 
 @tool
 def update_account(vendor: str, new_account: str) -> str:
     """Update bank account for vendor."""
-    return bank_system.update_account(vendor, new_account)
+    # Get role from context (invisible to LLM)
+    role = user_role_var.get()
+    return bank_system.update_account(vendor, new_account, role=role)
 
 @tool
 def send_money(vendor: str, amount: int) -> str:
     """Send money to vendor."""
-    return bank_system.send_money(vendor, amount)
+    # Get role from context (invisible to LLM)
+    role = user_role_var.get()
+    return bank_system.send_money(vendor, amount, role=role)
 
 tools = [update_account, send_money]
 

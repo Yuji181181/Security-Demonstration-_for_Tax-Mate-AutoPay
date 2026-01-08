@@ -303,3 +303,17 @@ workflow_hitl.add_edge("tools", "agent")
 
 hitl_memory = MemorySaver()
 hitl_app = workflow_hitl.compile(checkpointer=hitl_memory)
+
+def reset_agent_memory():
+    """
+    Reset memory for secure and HITL agents.
+    This clears the conversation history and state without affecting bank logs.
+    """
+    global secure_app, hitl_app, memory, hitl_memory
+    
+    # Recreate MemorySaver instances
+    memory = MemorySaver()
+    secure_app = workflow_secure.compile(checkpointer=memory)
+    
+    hitl_memory = MemorySaver()
+    hitl_app = workflow_hitl.compile(checkpointer=hitl_memory)

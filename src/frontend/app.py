@@ -54,6 +54,20 @@ if user_role == "ADMIN":
 else:
     st.sidebar.warning("🔒 **READ_ONLY権限**\n\n書き込み操作はブロックされます")
 
+# Detect role change and reset agent memory
+if 'previous_role' not in st.session_state:
+    st.session_state['previous_role'] = user_role
+
+if st.session_state['previous_role'] != user_role:
+    # Role changed - reset agent memory (but preserve bank logs)
+    try:
+        requests.post(f"{API_URL}/reset_agents")
+        st.toast(f"🔄 権限を {user_role} に変更しました（エージェントメモリをリセット）", icon="🔄")
+    except Exception as e:
+        # Silently fail if backend is not running
+        pass
+    st.session_state['previous_role'] = user_role
+
 st.sidebar.markdown("---")
 
 st.sidebar.subheader("📊 クイックアクション")
@@ -280,17 +294,24 @@ with tab1:
     
     if st.button("🚀 請求書を処理 (脆弱モード)", key="run_vuln"):
         with st.spinner("エージェントが処理中..."):
+            # 実行前のログ数を記録
+            logs_before = get_logs()
+            logs_before_count = len(logs_before)
+            
             result = run_vulnerable(user_role)
             if result:
                 # Check outcome
                 time.sleep(1) # Wait for log sync
                 latest_logs = get_logs()
                 
-                # Check if RBAC blocked the operation
-                rbac_blocked = any("BLOCKED: User with role 'READ_ONLY'" in log for log in latest_logs)
+                # 新しく追加されたログのみを取得
+                new_logs = latest_logs[logs_before_count:]
                 
-                # Check if attack succeeded
-                hacked = any("HACKER-999" in log or "MAINTENANCE-999" in log for log in latest_logs)
+                # Check if RBAC blocked the operation (新しいログのみチェック)
+                rbac_blocked = any("BLOCKED: User with role 'READ_ONLY'" in log for log in new_logs)
+                
+                # Check if attack succeeded (新しいログのみチェック)
+                hacked = any("HACKER-999" in log or "MAINTENANCE-999" in log for log in new_logs)
                 
                 if rbac_blocked:
                     st.success("✅ 【RBAC防御成功】システムが不正操作をブロックしました！", icon="🛡️")
@@ -307,7 +328,7 @@ with tab1:
                     
                     with st.container(border=True):
                         st.markdown("**🚫 ブロックされた操作:**")
-                        blocked_logs = [log for log in latest_logs if "BLOCKED" in log or "Permission Denied" in log]
+                        blocked_logs = [log for log in new_logs if "BLOCKED" in log or "Permission Denied" in log]
                         if blocked_logs:
                             st.code("\n".join(blocked_logs[-3:]), language="bash")
                     
@@ -327,7 +348,7 @@ with tab1:
                     with st.container(border=True):
                         st.markdown("**💥 実行されてしまった不正コマンド:**")
                         # ログから不正操作を抽出して表示
-                        hacked_logs = [log for log in latest_logs if "HACKER-999" in log or "MAINTENANCE-999" in log]
+                        hacked_logs = [log for log in new_logs if "HACKER-999" in log or "MAINTENANCE-999" in log]
                         if hacked_logs:
                              st.code("\n".join(hacked_logs), language="bash")
                             

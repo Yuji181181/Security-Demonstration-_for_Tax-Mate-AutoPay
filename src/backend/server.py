@@ -63,6 +63,13 @@ def reset_system():
     bank_system.reset()
     return {"status": "System and Bank reset"}
 
+@app.post("/reset_agents")
+def reset_agents():
+    """Reset agent memory only (preserve bank logs for audit)"""
+    from src.backend.agents import reset_agent_memory
+    reset_agent_memory()
+    return {"status": "Agent memory cleared"}
+
 @app.get("/logs")
 def get_logs():
     return {"logs": bank_system.get_logs()}
